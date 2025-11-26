@@ -35,8 +35,13 @@ jobs:
       - name: Build Executable
         run: |
           pyinstaller --onefile --name myapp-${{ matrix.os }} your_script.py
-          
-      # Check if the build file exists before proceeding
+
+      # List contents of the dist folder to verify the build file exists
+      - name: List contents of dist folder
+        run: |
+          ls -l dist/
+
+      # Verify Build File Existence
       - name: Verify Build File
         run: |
           if [ ! -f "dist/myapp-${{ matrix.os }}.zip" ]; then
