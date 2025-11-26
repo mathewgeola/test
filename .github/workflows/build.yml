@@ -3,14 +3,14 @@ name: Build Executables
 on:
   push:
     tags:
-      - 'v*'  # 标签触发
+      - 'v*'  # 标签触发（例如 v1.0.0）
   workflow_dispatch:  # 手动触发
 
 jobs:
   build:
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]  # 支持多个操作系统
+        os: [ubuntu-latest, macos-latest, windows-latest]  # 支持多种操作系统
 
     runs-on: ${{ matrix.os }}
 
@@ -36,15 +36,16 @@ jobs:
         run: |
           pyinstaller --onefile --name myapp-${{ matrix.os }} your_script.py
 
-      # 列出 dist 文件夹中的内容，以确认生成的文件是否存在
+      # 列出 dist 文件夹中的内容
       - name: List contents of dist folder
         run: |
           ls -l dist/
 
-      # 验证生成的文件是否存在
+      # 验证生成的文件是否存在（检查实际生成的文件类型和文件名）
       - name: Verify Build File
         run: |
-          if [ ! -f "dist/myapp-${{ matrix.os }}.zip" ]; then
+          # 如果是其他文件类型（例如 .exe 或 .app），请相应修改检查逻辑
+          if [ ! -f "dist/myapp-${{ matrix.os }}" ]; then
             echo "Build file not found!"
             exit 1
           fi
@@ -68,6 +69,6 @@ jobs:
         uses: actions/upload-release-asset@v1
         with:
           upload_url: ${{ env.UPLOAD_URL }}
-          asset_path: dist/myapp-${{ matrix.os }}.zip  # 确保这个文件存在并且是 ZIP 格式
-          asset_name: myapp-${{ matrix.os }}.zip      # 确保与文件名匹配
-          asset_content_type: application/zip
+          asset_path: dist/myapp-${{ matrix.os }}  # 根据生成的文件类型修改
+          asset_name: myapp-${{ matrix.os }}      # 确保与文件名匹配
+          asset_content_type: application/octet-stream
