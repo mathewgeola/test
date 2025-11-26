@@ -1,17 +1,16 @@
 name: Build Executables
 
-# 触发条件：在推送新的标签时执行
 on:
   push:
     tags:
-      - 'v*'  # 以 v 开头的标签，比如 v1.0, v1.1 等触发
-  
-  workflow_dispatch:  # 手动触发
-  inputs:
-    version:
-      description: 'Version for the build'
-      required: true
-      default: '1.0.0'  # 默认版本号
+      - 'v*'  # 以 v 开头的标签触发工作流，如 v1.0, v1.1 等
+
+  workflow_dispatch:  # 支持手动触发
+    inputs:
+      version:
+        description: 'Version for the build'
+        required: true
+        default: '1.0.0'  # 默认版本号
 
 jobs:
   build:
@@ -40,11 +39,19 @@ jobs:
 
       # 编译应用程序
       - name: Build Executable
-        run: pyinstaller --onefile your_script.py  # 把 your_script.py 换成你的主脚本
+        run: |
+          pyinstaller --onefile --name myapp-${{ matrix.os }} your_script.py  # 使用 --name 来指定可执行文件名称
 
       # 上传构建的文件到 GitHub artifacts
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: myapp-${{ matrix.os }}
-          path: dist/  # 上传 dist 文件夹下的所有文件（这里是最终生成的可执行文件）
+          path: dist/  # 上传 dist 文件夹下的所有文件（包括可执行文件）
+
+      # 清理临时文件
+      - name: Clean up temporary files
+        run: |
+          rm -rf build/  # 删除 PyInstaller 的 build 文件夹
+          rm -rf dist/   # 删除 PyInstaller 的 dist 文件夹（不包含上传的文件）
+
