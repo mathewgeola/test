@@ -54,6 +54,16 @@ jobs:
           
           # 提取并设置 upload_url
           UPLOAD_URL=$(echo $RESPONSE | jq -r '.upload_url' | sed 's/{?name,label}//')
+          
+          # 调试输出
+          echo "UPLOAD_URL: $UPLOAD_URL"
+          
+          # 如果 upload_url 是空的，抛出错误
+          if [ -z "$UPLOAD_URL" ]; then
+            echo "Error: upload_url is empty."
+            exit 1
+          fi
+          
           echo "UPLOAD_URL=${UPLOAD_URL}" >> $GITHUB_ENV  # 使用环境文件设置 upload_url
 
       # 上传 Executable 文件到 Release
