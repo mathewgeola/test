@@ -37,6 +37,10 @@ jobs:
         run: |
           pyinstaller --onefile --name myapp-${{ matrix.os }} your_script.py
 
+      - name: Make Linux/Mac executable
+        if: runner.os != 'Windows'
+        run: chmod +x dist/myapp-*
+
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
