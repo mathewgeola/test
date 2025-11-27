@@ -3,7 +3,7 @@ name: Build Executables
 on:
   push:
     tags:
-      - 'v*'  # 推送标签触发
+      - 'v*'
   workflow_dispatch:
     inputs:
       version:
@@ -40,10 +40,10 @@ jobs:
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: myapp-${{ matrix.os }}
+          name: myapp-${{ matrix.os }}     # 例如 myapp-windows-latest
           path: |
             dist/**
-            dist/**/*.exe  # 兼容 Windows
+            dist/**/*.exe                 # Windows exe
 
   release:
     needs: build
@@ -69,16 +69,16 @@ jobs:
       - name: Download ALL artifacts
         uses: actions/download-artifact@v4
         with:
+          pattern: myapp-*           # 🔥 下载 ubuntu/macos/windows 全部
           path: release_files
 
-      - name: List release_files
-        run: ls -l release_files
+      - name: List downloaded files
+        run: ls -R release_files
 
-      - name: Create Release
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.TAG }}
-          files: |
-            release_files/**               # ← 所有平台都上传
+          files: release_files/**    # 💥 上传全部文件
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
