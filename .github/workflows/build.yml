@@ -3,83 +3,78 @@ name: Build Executables
 on:
   push:
     tags:
-      - 'v*'  # 触发推送标签（例如 v1.0.0）
+      - 'v*'  # 推送标签触发（例如 v1.0.0）
   workflow_dispatch:  # 支持手动触发
 
 jobs:
   build:
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]  # 支持多种操作系统
+        os: [ubuntu-latest, macos-latest, windows-latest]
 
     runs-on: ${{ matrix.os }}
 
     steps:
-      # Checkout 当前代码
       - name: Checkout Code
         uses: actions/checkout@v2
 
-      # 设置 Python 环境
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
 
-      # 安装依赖
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install pyinstaller
 
-      # 编译可执行文件
       - name: Build Executable
         run: |
           pyinstaller --onefile --name myapp-${{ matrix.os }} your_script.py
 
-      # 列出 dist 文件夹中的内容
       - name: List contents of dist folder
         run: |
-          ls -l dist/
+          ls -l dist/ || dir dist
 
-      # 验证构建的文件是否存在
+      # 统一检查文件（Linux/Mac 用 Bash，Windows 用 PowerShell）
       - name: Verify Build File
         run: |
-          if [ ! -f "dist/myapp-${{ matrix.os }}" ]; then
-            echo "Build file not found!"
+          FILE="dist/myapp-${{ matrix.os }}"
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            FILE="${FILE}.exe"
+          fi
+          echo "检查文件: $FILE"
+          if [ ! -f "$FILE" ]; then
+            echo "❌ Build file not found!"
             exit 1
           fi
-          
-      # 创建 GitHub Release 并获取上传 URL
+          echo "✔️ Build file exists."
+
+      # 获取当前 tag 作为 Release 名称
+      - name: Set release tag
+        run: echo "TAG_NAME=${{ github.ref_name }}" >> $GITHUB_ENV
+
+      # 创建 Release
       - name: Create Release
         id: create_release
         run: |
-          TAG_NAME="v${{ github.event.inputs.version }}"
-          RESPONSE=$(curl -s -XPOST -H "Authorization: token ${{ secrets.MY_GITHUB_TOKEN }}" \
-            -d "{\"tag_name\": \"$TAG_NAME\", \"name\": \"$TAG_NAME\", \"body\": \"Release of version $TAG_NAME\"}" \
+          RESPONSE=$(curl -s -XPOST \
+            -H "Authorization: token ${{ secrets.MY_GITHUB_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d "{\"tag_name\": \"${TAG_NAME}\", \"name\": \"${TAG_NAME}\", \"body\": \"Auto Release: ${TAG_NAME}\"}" \
             "https://api.github.com/repos/${{ github.repository }}/releases")
-          
-          # 输出 API 响应，帮助调试
-          echo "Release creation response: $RESPONSE"
-          
-          # 提取 upload_url 并设置环境变量
-          UPLOAD_URL=$(echo $RESPONSE | jq -r '.upload_url' | sed 's/{?name,label}//')
-          echo "UPLOAD_URL=${UPLOAD_URL}" >> $GITHUB_ENV
 
-      # 上传可执行文件到 GitHub Release
+          echo "Release creation response: $RESPONSE"
+
+          UPLOAD_URL=$(echo "$RESPONSE" | jq -r '.upload_url' | sed 's/{?name,label}//')
+          echo "UPLOAD_URL=$UPLOAD_URL" >> $GITHUB_ENV
+
+      # 上传文件到 Release
       - name: Upload Executable to Release
         if: env.UPLOAD_URL != 'null'
         uses: actions/upload-release-asset@v1
         with:
           upload_url: ${{ env.UPLOAD_URL }}
-          asset_path: dist/myapp-${{ matrix.os }}  # 确保文件路径正确
-          asset_name: myapp-${{ matrix.os }}      # 确保文件名与实际生成的文件匹配
+          asset_path: dist/myapp-${{ matrix.os }}${{ matrix.os == 'windows-latest' && '.exe' || '' }}
+          asset_name: myapp-${{ matrix.os }}${{ matrix.os == 'windows-latest' && '.exe' || '' }}
           asset_content_type: application/octet-stream
-
-# 如果是在 Windows 上运行，则需要使用 PowerShell 的语法
-      - name: Verify Build File on Windows
-        if: runner.os == 'Windows'
-        run: |
-          if (!(Test-Path "dist/myapp-windows-latest")) {
-            Write-Host "Build file not found!"
-            exit 1
-          }
