@@ -3,8 +3,8 @@ name: Build Executables
 on:
   push:
     tags:
-      - 'v*'  # 标签触发（例如 v1.0.0）
-  workflow_dispatch:  # 手动触发
+      - 'v*'  # 触发推送标签（例如 v1.0.0）
+  workflow_dispatch:  # 支持手动触发
 
 jobs:
   build:
@@ -41,10 +41,9 @@ jobs:
         run: |
           ls -l dist/
 
-      # 验证生成的文件是否存在（检查实际生成的文件类型和文件名）
+      # 验证构建的文件是否存在
       - name: Verify Build File
         run: |
-          # 如果是其他文件类型（例如 .exe 或 .app），请相应修改检查逻辑
           if [ ! -f "dist/myapp-${{ matrix.os }}" ]; then
             echo "Build file not found!"
             exit 1
@@ -58,17 +57,20 @@ jobs:
           RESPONSE=$(curl -s -XPOST -H "Authorization: token ${{ secrets.MY_GITHUB_TOKEN }}" \
             -d "{\"tag_name\": \"$TAG_NAME\", \"name\": \"$TAG_NAME\", \"body\": \"Release of version $TAG_NAME\"}" \
             "https://api.github.com/repos/${{ github.repository }}/releases")
-          echo "Release created: $RESPONSE"
           
-          # 从响应中提取上传 URL
+          # 输出 API 响应，帮助调试
+          echo "Release creation response: $RESPONSE"
+          
+          # 提取 upload_url 并设置环境变量
           UPLOAD_URL=$(echo $RESPONSE | jq -r '.upload_url' | sed 's/{?name,label}//')
           echo "UPLOAD_URL=${UPLOAD_URL}" >> $GITHUB_ENV
-          
+
       # 上传可执行文件到 GitHub Release
       - name: Upload Executable to Release
+        if: env.UPLOAD_URL != 'null'
         uses: actions/upload-release-asset@v1
         with:
           upload_url: ${{ env.UPLOAD_URL }}
-          asset_path: dist/myapp-${{ matrix.os }}  # 根据生成的文件类型修改
-          asset_name: myapp-${{ matrix.os }}      # 确保与文件名匹配
+          asset_path: dist/myapp-${{ matrix.os }}  # 确保文件路径正确
+          asset_name: myapp-${{ matrix.os }}      # 确保文件名与实际生成的文件匹配
           asset_content_type: application/octet-stream
