@@ -3,7 +3,7 @@ name: Build Executables
 on:
   push:
     tags:
-      - 'v*'  # 推送标签时触发，如 v1.0.0
+      - 'v*'  # 推送标签触发
   workflow_dispatch:
     inputs:
       version:
@@ -37,14 +37,13 @@ jobs:
         run: |
           pyinstaller --onefile --name myapp-${{ matrix.os }} your_script.py
 
-      - name: List dist folder
-        run: ls -l dist/
-
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
           name: myapp-${{ matrix.os }}
-          path: dist/**
+          path: |
+            dist/**
+            dist/**/*.exe  # 兼容 Windows
 
   release:
     needs: build
@@ -53,9 +52,6 @@ jobs:
       contents: write
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
       - name: Determine Tag
         id: get_tag
         run: |
@@ -69,17 +65,20 @@ jobs:
             TAG="${GITHUB_REF#refs/tags/}"
           fi
           echo "TAG=$TAG" >> $GITHUB_ENV
-          echo "Using tag: $TAG"
 
-      - name: Download build artifacts
+      - name: Download ALL artifacts
         uses: actions/download-artifact@v4
         with:
           path: release_files
 
-      - name: Create GitHub Release
+      - name: List release_files
+        run: ls -l release_files
+
+      - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ env.TAG }}    # ← 用这个 tag
-          files: release_files/**     # ← 上传所有平台构建文件
+          tag_name: ${{ env.TAG }}
+          files: |
+            release_files/**               # ← 所有平台都上传
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
