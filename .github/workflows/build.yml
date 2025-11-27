@@ -41,19 +41,31 @@ jobs:
         run: |
           ls -l dist/
 
-      # 验证构建的文件是否存在
-      - name: Verify Build File (cross-platform)
+      # 验证构建文件（Linux/Mac）
+      - name: Verify Build File (Linux/macOS)
+        if: runner.os != 'Windows'
         run: |
           FILE="dist/myapp-${{ matrix.os }}"
-          if [ "${{ matrix.os }}" = "windows-latest" ]; then
-            FILE="${FILE}.exe"
-          fi
           echo "检查文件: $FILE"
           if [ ! -f "$FILE" ]; then
             echo "❌ Build file not found!"
             exit 1
           fi
           echo "✔️ Build file exists."
+
+      # 验证构建文件（Windows）
+      - name: Verify Build File (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $filePath = "dist\\myapp-${{ matrix.os }}.exe"
+          Write-Host "检查文件: $filePath"
+          if (!(Test-Path $filePath)) {
+            Write-Host "❌ Build file not found!"
+            exit 1
+          }
+          Write-Host "✔️ Build file exists."
+
 
       # 创建 GitHub Release 并获取上传 URL
       - name: Create Release
