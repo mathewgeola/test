@@ -42,21 +42,18 @@ jobs:
           ls -l dist/
 
       # 验证构建的文件是否存在
-      - name: Verify Build File
+      - name: Verify Build File (cross-platform)
         run: |
-          if [ ! -f "dist/myapp-${{ matrix.os }}" ]; then
-            echo "Build file not found!"
+          FILE="dist/myapp-${{ matrix.os }}"
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            FILE="${FILE}.exe"
+          fi
+          echo "检查文件: $FILE"
+          if [ ! -f "$FILE" ]; then
+            echo "❌ Build file not found!"
             exit 1
           fi
-
-      # Windows 上的文件存在性检查（PowerShell 语法）
-      - name: Verify Build File on Windows
-        if: runner.os == 'Windows'
-        run: |
-          if (!(Test-Path "dist/myapp-windows-latest")) {
-            Write-Host "Build file not found!"
-            exit 1
-          }
+          echo "✔️ Build file exists."
 
       # 创建 GitHub Release 并获取上传 URL
       - name: Create Release
@@ -74,12 +71,12 @@ jobs:
           UPLOAD_URL=$(echo $RESPONSE | jq -r '.upload_url' | sed 's/{?name,label}//')
           echo "UPLOAD_URL=${UPLOAD_URL}" >> $GITHUB_ENV
 
-      # 上传可执行文件到 GitHub Release
+      # 上传可执行文件
       - name: Upload Executable to Release
         if: env.UPLOAD_URL != 'null'
         uses: actions/upload-release-asset@v1
         with:
           upload_url: ${{ env.UPLOAD_URL }}
-          asset_path: dist/myapp-${{ matrix.os }}  # 确保文件路径正确
-          asset_name: myapp-${{ matrix.os }}      # 确保文件名与实际生成的文件匹配
+          asset_path: dist/myapp-${{ matrix.os }}${{ matrix.os == 'windows-latest' && '.exe' || '' }}
+          asset_name: myapp-${{ matrix.os }}${{ matrix.os == 'windows-latest' && '.exe' || '' }}
           asset_content_type: application/octet-stream
