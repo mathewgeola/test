@@ -74,3 +74,12 @@ jobs:
           asset_path: dist/myapp-${{ matrix.os }}  # 确保文件路径正确
           asset_name: myapp-${{ matrix.os }}      # 确保文件名与实际生成的文件匹配
           asset_content_type: application/octet-stream
+
+# 如果是在 Windows 上运行，则需要使用 PowerShell 的语法
+      - name: Verify Build File on Windows
+        if: runner.os == 'Windows'
+        run: |
+          if (!(Test-Path "dist/myapp-windows-latest")) {
+            Write-Host "Build file not found!"
+            exit 1
+          }
