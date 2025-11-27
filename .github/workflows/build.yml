@@ -3,92 +3,62 @@ name: Build Executables
 on:
   push:
     tags:
-      - 'v*'  # 触发推送标签（例如 v1.0.0）
-  workflow_dispatch:  # 支持手动触发
+      - 'v*'  # 推送版本标签时触发，如 v1.0.0
+  workflow_dispatch:
 
 jobs:
   build:
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]  # 支持多种操作系统
+        os: [ubuntu-latest, macos-latest, windows-latest]
 
     runs-on: ${{ matrix.os }}
 
     steps:
-      # Checkout 当前代码
       - name: Checkout Code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
-      # 设置 Python 环境
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
 
-      # 安装依赖
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install pyinstaller
 
-      # 编译可执行文件
       - name: Build Executable
         run: |
           pyinstaller --onefile --name myapp-${{ matrix.os }} your_script.py
 
-      # 列出 dist 文件夹中的内容
-      - name: List contents of dist folder
-        run: |
-          ls -l dist/
+      - name: List dist folder
+        run: ls -l dist/
 
-      # 验证构建文件（Linux/Mac）
-      - name: Verify Build File (Linux/macOS)
-        if: runner.os != 'Windows'
-        run: |
-          FILE="dist/myapp-${{ matrix.os }}"
-          echo "检查文件: $FILE"
-          if [ ! -f "$FILE" ]; then
-            echo "❌ Build file not found!"
-            exit 1
-          fi
-          echo "✔️ Build file exists."
-
-      # 验证构建文件（Windows）
-      - name: Verify Build File (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          $filePath = "dist\\myapp-${{ matrix.os }}.exe"
-          Write-Host "检查文件: $filePath"
-          if (!(Test-Path $filePath)) {
-            Write-Host "❌ Build file not found!"
-            exit 1
-          }
-          Write-Host "✔️ Build file exists."
-
-
-      # 创建 GitHub Release 并获取上传 URL
-      - name: Create Release
-        id: create_release
-        run: |
-          TAG_NAME="v${{ github.event.inputs.version }}"
-          RESPONSE=$(curl -s -XPOST -H "Authorization: token ${{ secrets.MY_GITHUB_TOKEN }}" \
-            -d "{\"tag_name\": \"$TAG_NAME\", \"name\": \"$TAG_NAME\", \"body\": \"Release of version $TAG_NAME\"}" \
-            "https://api.github.com/repos/${{ github.repository }}/releases")
-          
-          # 输出 API 响应，帮助调试
-          echo "Release creation response: $RESPONSE"
-          
-          # 提取 upload_url 并设置环境变量
-          UPLOAD_URL=$(echo $RESPONSE | jq -r '.upload_url' | sed 's/{?name,label}//')
-          echo "UPLOAD_URL=${UPLOAD_URL}" >> $GITHUB_ENV
-
-      # 上传可执行文件
-      - name: Upload Executable to Release
-        if: env.UPLOAD_URL != 'null'
-        uses: actions/upload-release-asset@v1
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
         with:
-          upload_url: ${{ env.UPLOAD_URL }}
-          asset_path: dist/myapp-${{ matrix.os }}${{ matrix.os == 'windows-latest' && '.exe' || '' }}
-          asset_name: myapp-${{ matrix.os }}${{ matrix.os == 'windows-latest' && '.exe' || '' }}
-          asset_content_type: application/octet-stream
+          name: myapp-${{ matrix.os }}
+          path: dist/**
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release_files
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release_files/**
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
